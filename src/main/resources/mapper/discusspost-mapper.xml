@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.erin.community.dao.DiscussPostMapper">
+
+    <sql id="selectFields">
+        id, user_id, title, content, type, status, create_time, comment_count, score
+    </sql>
+
+    <!--因为DiscussPost不是java自带的类型，所以resultType需要声明，而list是java自带的，所以不需要-->
+    <!--status为2表示被拉黑了，不需要查询这种-->
+    <!--userId!=0表示查询的是用户发布的帖子，而不是首页的帖子，因此需要将user_id拼接到sql语句中-->
+    <!--type降序排序desc，置顶的帖子排在普通的帖子上面-->
+    <!--create_time降序排序desc，新的帖子排在上面-->
+    <!--offset指示从哪行开始查询，如果是3则是从第4行开始，limit表示查询的行数-->
+    <select id="selectDiscussPosts" resultType="DiscussPost">
+        select <include refid="selectFields"></include>
+        from discuss_post
+        where status != 2
+        <if test="userId!=0">
+            and user_id = #{userId}
+        </if>
+        order by type desc, create_time desc
+        limit #{offset}, #{limit}
+    </select>
+
+    <select id="selectDiscussPostRows" resultType="int">
+        select count(id)
+        from discuss_post
+        where status != 2
+        <if test="userId!=0">
+            and user_id = #{userId}
+        </if>
+    </select>
+
+</mapper>
