@@ -1,14 +1,17 @@
 package com.erin.community.controller;
 
 import com.erin.community.service.ErinService;
+import com.erin.community.util.CommunityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
@@ -145,5 +148,72 @@ public class ErinController {
         list.add(emp);
 
         return list;
+    }
+
+    /*
+    * cookie示例
+    *
+    * */
+    @RequestMapping(path = "/cookie/set", method = RequestMethod.GET)
+    @ResponseBody
+    public String setCookie(HttpServletResponse response) {
+        // 创建cookie
+        Cookie cookie = new Cookie("code", CommunityUtil.generateUUID());
+        // 设置cookie生效的范围
+        cookie.setPath("/community/alpha");
+        // 浏览器获得cookie后会将其存到内存中，关闭浏览器就会丢失cookie
+        // 如果设置cookie的生存时间，就会将cookie存到硬盘中，超过时间才会失效，60s*10
+        cookie.setMaxAge(60 * 10);
+        // 发送cookie给浏览器
+        response.addCookie(cookie);
+
+        return "set cookie";
+    }
+
+
+    /*
+    * 从key为code的cookie中取值并赋值给参数code
+    *
+    * */
+    @RequestMapping(path = "/cookie/get", method = RequestMethod.GET)
+    @ResponseBody
+    public String getCookie(@CookieValue("code") String code) {
+        System.out.println(code);
+        return "get cookie";
+    }
+
+    /*
+    * session示例
+    * Sprin MVC会自动创建session并注入，类似于cookie示例的HttpServletResponse，直接声明参数HttpSession即可
+    *
+    * */
+    @RequestMapping(path = "/session/set", method = RequestMethod.GET)
+    @ResponseBody
+    public String setSession(HttpSession session) {
+        session.setAttribute("id", 1);
+        session.setAttribute("name", "Test");
+        return "set session";
+    }
+
+    @RequestMapping(path = "/session/get", method = RequestMethod.GET)
+    @ResponseBody
+    public String getSession(HttpSession session) {
+        System.out.println(session.getAttribute("id"));
+        System.out.println(session.getAttribute("name"));
+        return "get session";
+    }
+
+    /**
+     * ajax示例
+     * @param name 浏览器给服务器传的参数
+     * @param age 浏览器给服务器传的参数
+     * @return 服务器根据得到的参数给浏览器返回json字符串
+     */
+    @RequestMapping(path = "/ajax", method = RequestMethod.POST)
+    @ResponseBody
+    public String testAjax(String name, int age) {
+        System.out.println(name);
+        System.out.println(age);
+        return CommunityUtil.getJSONString(0, "操作成功!");
     }
 }

@@ -8,6 +8,10 @@
         id, user_id, title, content, type, status, create_time, comment_count, score
     </sql>
 
+    <sql id="insertFields">
+        user_id, title, content, type, status, create_time, comment_count, score
+    </sql>
+
     <!--因为DiscussPost不是java自带的类型，所以resultType需要声明，而list是java自带的，所以不需要-->
     <!--status为2表示被拉黑了，不需要查询这种-->
     <!--userId!=0表示查询的是用户发布的帖子，而不是首页的帖子，因此需要将user_id拼接到sql语句中-->
@@ -34,4 +38,18 @@
         </if>
     </select>
 
+    <insert id="insertDiscussPost" parameterType="DiscussPost">
+        insert into discuss_post(<include refid="insertFields"></include>)
+        values(#{userId},#{title},#{content},#{type},#{status},#{createTime},#{commentCount},#{score})
+    </insert>
+
+    <select id="selectDiscussPostById" resultType="DiscussPost">
+        select <include refid="selectFields"></include>
+        from discuss_post
+        where id = #{id}
+    </select>
+
+    <update id="updateCommentCount">
+        update discuss_post set comment_count = #{commentCount} where id = #{id}
+    </update>
 </mapper>

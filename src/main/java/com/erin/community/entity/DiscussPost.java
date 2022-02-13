@@ -6,7 +6,7 @@ import java.util.Date;
  * \* Created with IntelliJ IDEA.
  * \* User: erin
  * \* To change this template use File | Settings | Editor | File and Code Templates | File | Class.
- * \* Description: discuss_post表的实体类* \
+ * \* Description: discuss_post表的实体类
  */
 
 public class DiscussPost {

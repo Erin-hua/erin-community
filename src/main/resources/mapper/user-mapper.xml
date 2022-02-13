@@ -34,7 +34,7 @@
     </select>
 
     <!-- parameterType指明传入的参数是User，keyProperty的作用是说明User类中与user表的id主键对应的属性名是id -->
-    <!-- 增加user时mysql会自动生成id，然后mybatis从mysql中获取id然后回填给User类的属性id -->
+    <!-- keyProperty属性设置为id之后，增加user时mysql会自动生成id，然后mybatis从mysql中获取id然后回填给User类的属性id -->
     <!-- 可以从User类型的参数中获取username属性: #{username} -->
     <insert id="insertUser" parameterType="User" keyProperty="id">
         insert into user (<include refid="insertFields"></include>)

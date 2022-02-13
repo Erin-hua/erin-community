@@ -70,4 +70,9 @@ public class HomeController {
         // 返回模板的路径，默认是在templates目录下，后缀html可以省略
         return "/index";
     }
+
+    @RequestMapping(path = "/error", method = RequestMethod.GET)
+    public String getErrorPage() {
+        return "/error/500";
+    }
 }

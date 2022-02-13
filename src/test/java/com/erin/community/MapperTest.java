@@ -1,8 +1,12 @@
 package com.erin.community;
 
 import com.erin.community.dao.DiscussPostMapper;
+import com.erin.community.dao.LoginTicketMapper;
+import com.erin.community.dao.MessageMapper;
 import com.erin.community.dao.UserMapper;
 import com.erin.community.entity.DiscussPost;
+import com.erin.community.entity.LoginTicket;
+import com.erin.community.entity.Message;
 import com.erin.community.entity.User;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -23,6 +27,12 @@ public class MapperTest {
 
     @Autowired
     private DiscussPostMapper discussPostMapper;
+
+    @Autowired
+    private LoginTicketMapper loginTicketMapper;
+
+    @Autowired
+    private MessageMapper messageMapper;
 
     @Test
     public void testSelectUser() {
@@ -83,4 +93,57 @@ public class MapperTest {
         int rows = discussPostMapper.selectDiscussPostRows(138);
         System.out.println(rows);
     }
+
+    /**
+    * 测试：往数据库中插入登陆凭证
+    * */
+    @Test
+    public void testInsertLoginTicket() {
+        LoginTicket loginTicket = new LoginTicket();
+        loginTicket.setUserId(101);
+        loginTicket.setTicket("abc");
+        loginTicket.setStatus(0); // 0-登陆凭证是有效的，表示登陆成功，1表示退出了
+        loginTicket.setExpired(new Date(System.currentTimeMillis() + 1000 * 60 * 10)); // 1000 ms*60*10 = 10 min
+
+        loginTicketMapper.insertLoginTicket(loginTicket);
+    }
+
+    /**
+    * 测试： 根据登陆凭证查询数据库中对应的数据，并且修改其状态
+    * */
+    @Test
+    public void testSelectLoginTicket() {
+        LoginTicket loginTicket = loginTicketMapper.selectByTicket("abc");
+        System.out.println(loginTicket);
+
+        loginTicketMapper.updateStatus("abc", 1);
+        loginTicket = loginTicketMapper.selectByTicket("abc");
+        System.out.println(loginTicket);
+    }
+
+    @Test
+    public void testSelectLetters() {
+        // 查询某个用户一共有多少个会话（查询得到的是每个会话最新的私信）
+        List<Message> list = messageMapper.selectConversations(111, 0, 20);
+        for (Message message : list) {
+            System.out.println(message);
+        }
+
+        int count = messageMapper.selectConversationCount(111);
+        System.out.println(count);
+
+        // 查询得到某个会话之下的所有私信
+        list = messageMapper.selectLetters("111_112", 0, 10);
+        for (Message message : list) {
+            System.out.println(message);
+        }
+
+        count = messageMapper.selectLetterCount("111_112");
+        System.out.println(count);
+
+        count = messageMapper.selectLetterUnreadCount(131, "111_131");
+        System.out.println(count);
+
+    }
+
 }
