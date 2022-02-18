@@ -4,12 +4,15 @@ import com.erin.community.entity.User;
 import com.erin.community.service.UserService;
 //import com.erin.community.util.CommunityConstant;
 import com.erin.community.util.CommunityConstant;
+import com.erin.community.util.CommunityUtil;
+import com.erin.community.util.RedisKeyUtil;
 import com.google.code.kaptcha.Producer;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -25,6 +28,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * \* Created with IntelliJ IDEA.
@@ -45,6 +49,9 @@ public class LoginController implements CommunityConstant {
     @Autowired
     private Producer kaptchaProducer;
 
+    @Autowired
+    private RedisTemplate redisTemplate;
+
     // 将application.properties文件中的值注入到该变量中，用于设置用户登陆后得到的cookie的作用域，是整个项目
     @Value("${server.servlet.context-path}")
     private String contextPath;
@@ -54,7 +61,7 @@ public class LoginController implements CommunityConstant {
         return "/site/register";
     }
 
-    /*
+    /**
     * spring mvc在调用该方法前会将user添加到model中
     * */
     @RequestMapping(path = "/register", method = RequestMethod.POST)
@@ -75,7 +82,7 @@ public class LoginController implements CommunityConstant {
     }
 
 
-    /*
+    /**
     * @PathVariable将路径中的变量取出来,code是用户的激活码
     * 无论激活成功与否，都需要跳转到中间页面operate-result，然后在该页面再跳转到对应的页面
     *
@@ -97,7 +104,7 @@ public class LoginController implements CommunityConstant {
         return "/site/operate-result";
     }
 
-    /*
+    /**
      * 用户点击激活链接，服务端为用户激活之后跳转到登陆页面
      * */
     @RequestMapping(path = "/login", method = RequestMethod.GET)
@@ -105,18 +112,28 @@ public class LoginController implements CommunityConstant {
         return "/site/login";
     }
 
-    /*
-    * 服务端生成验证码图片，响应客户端的时候发过去
-    * 验证码是敏感信息，因此需要存到服务端，用session
+    /**
+    * 用户访问登陆页面的时候，验证码就需要显示，就需要访问/kaptcha路径，服务端生成验证码图片，响应客户端的时候发过去
+    * 验证码是敏感信息，因此需要存到服务端，用session，但因为访问会很频繁，所以优化一下，将其存到Redis数据库中
     * */
     @RequestMapping(path = "/kaptcha", method = RequestMethod.GET)
-    public void getKaptcha(HttpServletResponse response, HttpSession session) {
+    public void getKaptcha(HttpServletResponse response/*, HttpSession session*/) {
         // 生成验证码，就是实现Producer接口的两个方法：createText和createImage
         String text = kaptchaProducer.createText();
         BufferedImage image = kaptchaProducer.createImage(text);
 
         // 将验证码存入session，便于之后登陆验证用
-        session.setAttribute("kaptcha", text);
+        // session.setAttribute("kaptcha", text);
+
+        // 验证码的归属者，发送给客户端保存
+        String kaptchaOwner = CommunityUtil.generateUUID();
+        Cookie cookie = new Cookie("kaptchaOwner", kaptchaOwner);
+        cookie.setMaxAge(60);
+        cookie.setPath(contextPath);
+        response.addCookie(cookie);
+        // 将验证码存入Redis，便于之后登陆验证用
+        String redisKey = RedisKeyUtil.getKaptchaKey(kaptchaOwner);
+        redisTemplate.opsForValue().set(redisKey, text, 60, TimeUnit.SECONDS);
 
         // 将验证码图片输出给浏览器，声明服务端给客户端响应的是什么数据
         response.setContentType("image/png");
@@ -130,17 +147,27 @@ public class LoginController implements CommunityConstant {
         }
     }
 
-    /*
-    * 参数都是客户端传过来的，code是客户端传过来的验证码
-    * response是为了向客户端传递登陆凭证，并让客户端存到cookie中
+    /**
+    * 参数都是客户端传过来的，code是客户端提交表单传过来的验证码
+    * response是为了向客户端传递登陆凭证，并让客户端存到cookie中，kaptchaOwner是从客户端传过来的cookie中得到的验证码归属者临时凭证
     * 如果有参数的类型不是基本类型，sping mvc会将其装到model中，客户端从而可以直接从model中得到该参数
     * 如果基本类型的参数没有在该方法中添加到model中，那么在页面中可以通过${param.参数名}的形式取出
     * */
     @RequestMapping(path = "/login", method = RequestMethod.POST)
     public String login(String username, String password, String code, boolean rememberme,
-                        Model model, HttpSession session, HttpServletResponse response) {
+                        Model model/*, HttpSession session*/, HttpServletResponse response,
+                        @CookieValue("kaptchaOwner") String kaptchaOwner) {
         // 检查验证码，如果验证码都不对就没必要继续判断用户名和密码了，getAttribute返回的是Object类型，因此需要强制类型转换
-        String kaptcha = (String) session.getAttribute("kaptcha");
+        // String kaptcha = (String) session.getAttribute("kaptcha");
+        String kaptcha = null;
+        // 验证码所属者的临时凭证不为空，表示存到Redis中的验证码没有失效
+        // 因为存到cookie中的kaptchaOwner和数据以(kaptchaOwner,验证码)（分别对应key和value）的形式存到Redis中时都设置了失效时间
+        // 如果kaptchaOwner为null，则Redis中以kaptchaOwner为key对应的value（验证码）也就查询不到
+        if (StringUtils.isNotBlank(kaptchaOwner)) {
+            String redisKey = RedisKeyUtil.getKaptchaKey(kaptchaOwner);
+            kaptcha = (String) redisTemplate.opsForValue().get(redisKey);
+        }
+
         if (StringUtils.isBlank(kaptcha) || StringUtils.isBlank(code) || !kaptcha.equalsIgnoreCase(code)) {
             model.addAttribute("codeMsg", "验证码不正确!");
             return "/site/login";

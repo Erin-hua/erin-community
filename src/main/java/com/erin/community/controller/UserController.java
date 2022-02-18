@@ -2,7 +2,10 @@ package com.erin.community.controller;
 
 import com.erin.community.annotation.LoginRequired;
 import com.erin.community.entity.User;
+import com.erin.community.service.FollowService;
+import com.erin.community.service.LikeService;
 import com.erin.community.service.UserService;
+import com.erin.community.util.CommunityConstant;
 import com.erin.community.util.CommunityUtil;
 import com.erin.community.util.HostHolder;
 import org.apache.commons.lang3.StringUtils;
@@ -33,7 +36,7 @@ import java.io.OutputStream;
 
 @Controller
 @RequestMapping("/user")
-public class UserController {
+public class UserController implements CommunityConstant {
 
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
@@ -55,8 +58,14 @@ public class UserController {
     @Autowired
     private HostHolder hostHolder;
 
-    /*
-    * 访问帐号设置页面
+    @Autowired
+    private LikeService likeService;
+
+    @Autowired
+    private FollowService followService;
+
+    /**
+    * 访问帐号设置页面，注解@LoginRequired是自定义的，表示必须用户登陆才能使用这个功能
     * */
     @LoginRequired
     @RequestMapping(path = "/setting", method = RequestMethod.GET)
@@ -64,7 +73,7 @@ public class UserController {
         return "/site/setting";
     }
 
-    /*
+    /**
     * 上传头像
     * */
     @LoginRequired
@@ -107,7 +116,7 @@ public class UserController {
         return "redirect:/index";
     }
 
-    /*
+    /**
     * 通过web路径获取用户的头像
     * 因为方法向浏览器响应的是二进制的图片数据，因此需要通过流手动向浏览器输出（通过response）
     * 用户不登陆也可以点击首页帖子的用户并获取其头像
@@ -136,6 +145,41 @@ public class UserController {
         } catch (IOException e) {
             logger.error("读取头像失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 个人主页，在页面上点击某个用户的头像就可以访问
+     * @param userId 是在访问之前的页面时得到的id，拼接到profile后面的
+     * @param model 封装给页面返回的参数
+     * @return
+     */
+    @RequestMapping(path = "/profile/{userId}", method = RequestMethod.GET)
+    public String getProfilePage(@PathVariable("userId") int userId, Model model) {
+        User user = userService.findUserById(userId);
+        if (user == null) {
+            throw new RuntimeException("该用户不存在！");
+        }
+
+        // 用户
+        model.addAttribute("user", user);
+        // 用户被点赞的数量
+        int likeCount = likeService.findUserLikeCount(userId);
+        model.addAttribute("likeCount", likeCount);
+        // 用户关注的实体（这里只查询得到关注的用户的数量）的数量
+        long followeeCount = followService.findFolloweeCount(userId, ENTITY_TYPE_USER);
+        model.addAttribute("followeeCount", followeeCount);
+        // 用户的粉丝数量
+        long followerCount = followService.findFollowerCount(ENTITY_TYPE_USER, userId);
+        model.addAttribute("followerCount", followerCount);
+        // 当前登陆的用户是否已关注该个人主页对应的用户
+        boolean hasFollowed = false;
+        if (hostHolder.getUser() != null) { // 只有登陆了才能在查看别人的个人主页时判断是否已关注
+            hasFollowed = followService.hasFollowed(hostHolder.getUser().getId(), ENTITY_TYPE_USER, userId);
+        }
+        model.addAttribute("hasFollowed", hasFollowed);
+
+
+        return "/site/profile";
     }
 
 }

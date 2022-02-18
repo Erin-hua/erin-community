@@ -29,7 +29,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Autowired
     private LoginRequiredInterceptor loginRequiredInterceptor;
 
-    /*
+    /**
     * Sprng在调用该方法时会传入参数registry，这样方法就能注册interceptor进行拦截
     * */
     @Override

@@ -4,7 +4,9 @@ import com.erin.community.entity.DiscussPost;
 import com.erin.community.entity.Page;
 import com.erin.community.entity.User;
 import com.erin.community.service.DiscussPostService;
+import com.erin.community.service.LikeService;
 import com.erin.community.service.UserService;
+import com.erin.community.util.CommunityConstant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -25,7 +27,7 @@ import java.util.Map;
  */
 
 @Controller
-public class HomeController {
+public class HomeController implements CommunityConstant {
 
     @Autowired
     private DiscussPostService discussPostService;
@@ -33,7 +35,10 @@ public class HomeController {
     @Autowired
     private UserService userService;
 
-    /*
+    @Autowired
+    private LikeService likeService;
+
+    /**
     * 方法调用之前，SpringMVC的dispatcherServlet会自动实例化Model和Page,并将Page注入Model
     * 所以在thymeleaf中可以直接访问Page对象中的数据
     *
@@ -62,7 +67,10 @@ public class HomeController {
                 map.put("post", post);
                 User user = userService.findUserById(post.getUserId());
                 map.put("user", user);
-                // map存储discuss_post实体类和user实体类
+                long likeCount = likeService.findEntityLikeCount(ENTITY_TYPE_POST, post.getId());
+                map.put("likeCount", likeCount);
+
+                // map存储discuss_post实体类、user实体类、当前显示帖子的点赞数量
                 discussPosts.add(map);
             }
         }
